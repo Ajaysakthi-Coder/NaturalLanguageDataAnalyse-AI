@@ -2,7 +2,7 @@ from groq import Groq
 import pandas as pd
 import matplotlib.pyplot as plt
 
-client = Groq(api_key="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")
+client = Groq(api_key="gsk_SSDz2zovIVGaVdqoLcjbbWGdyb3FYvNsLdSd1VyhRcuexGASowpY2")
 
 # Try these in order — whichever your key has access t
 MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
