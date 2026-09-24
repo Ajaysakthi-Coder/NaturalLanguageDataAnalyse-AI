@@ -11,7 +11,7 @@ st.set_page_config(page_title="Schema-Agnostic Data Analyst", layout="centered")
 st.title("📊 Ask Your Spreadsheet Anything")
 st.caption("Upload any CSV. Ask questions in plain English. No fixed column names required.")
 
-client = Groq(api_key=st.secrets["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"])
+client = Groq(api_key="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")
 MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
 
 def ask_ai(prompt):
