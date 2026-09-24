@@ -187,7 +187,7 @@ The project is also a learning exercise in:
 
 ## 👥 Team
 
-**Team:** X_Entity
+**Team:** Tech Spark
 
 Built with curiosity, experimentation, and a focus on learning through the hackathon.
 
