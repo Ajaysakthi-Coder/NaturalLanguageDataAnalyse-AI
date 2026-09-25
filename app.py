@@ -3,13 +3,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from groq import Groq
 import re
+
+# Initialize conversational memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 st.set_page_config(page_title="Schema-Agnostic Data Analyst", layout="wide")
 st.title("📊 Ask Your Spreadsheet Anything")
 st.caption("Upload any CSV. Ask questions in plain English. No fixed column names required.")
+
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
 MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+
 def ask_ai(prompt):
     last_error = None
     for model_name in MODELS:
@@ -30,7 +36,7 @@ def clean_code(raw_code):
     return cleaned.strip()
 
 def detect_anomalies(df):
-    """TIER 2 FEATURE: Flags statistical outliers in numeric columns."""
+    """Flags statistical outliers in numeric columns."""
     anomalies = []
     numeric_cols = df.select_dtypes(include='number').columns
     for col in numeric_cols:
@@ -46,7 +52,7 @@ def detect_anomalies(df):
     return anomalies
 
 def generate_suggested_questions(columns, df):
-    """TIER 1 FEATURE: AI suggests example questions based on actual columns."""
+    """AI suggests example questions based on actual columns."""
     numeric_cols = list(df.select_dtypes(include='number').columns)
     categorical_cols = list(df.select_dtypes(include='object').columns)
     prompt = f"""
@@ -72,10 +78,61 @@ if uploaded_file:
     else:
         df = pd.read_excel(uploaded_file)
 
-    with st.expander("📁 View Data Preview", expanded=False):
-        st.dataframe(df.head(10))
+    # ===== FULL DATASET OVERVIEW =====
+    st.subheader("📁 Dataset Overview")
 
-    # Data Quality Checks
+    overview_col1, overview_col2, overview_col3, overview_col4 = st.columns(4)
+    with overview_col1:
+        st.metric("Total Rows", f"{df.shape[0]:,}")
+    with overview_col2:
+        st.metric("Total Columns", df.shape[1])
+    with overview_col3:
+        st.metric("Numeric Columns", len(df.select_dtypes(include='number').columns))
+    with overview_col4:
+        st.metric("Text Columns", len(df.select_dtypes(include='object').columns))
+
+    tab_preview, tab_schema, tab_stats, tab_full = st.tabs(
+        ["👀 Preview", "🧬 Column Schema", "📈 Summary Statistics", "📋 Full Dataset"]
+    )
+
+    with tab_preview:
+        st.caption("First 10 rows")
+        st.dataframe(df.head(10), use_container_width=True)
+
+    with tab_schema:
+        st.caption("Every column, its detected type, and how much data is missing")
+        schema_info = pd.DataFrame({
+            "Column": df.columns,
+            "Data Type": df.dtypes.astype(str).values,
+            "Non-Null Count": df.notnull().sum().values,
+            "Missing Values": df.isnull().sum().values,
+            "Unique Values": [df[col].nunique() for col in df.columns]
+        })
+        st.dataframe(schema_info, use_container_width=True, hide_index=True)
+
+    with tab_stats:
+        numeric_df = df.select_dtypes(include='number')
+        if not numeric_df.empty:
+            st.caption("Statistical summary of all numeric columns")
+            st.dataframe(numeric_df.describe().T, use_container_width=True)
+        else:
+            st.info("No numeric columns found in this dataset.")
+
+        categorical_df = df.select_dtypes(include='object')
+        if not categorical_df.empty:
+            st.caption("Most common values in each text/category column")
+            for col in categorical_df.columns:
+                top_val = df[col].value_counts().head(3)
+                st.write(f"**{col}**")
+                st.dataframe(top_val.rename("Count"), use_container_width=True)
+
+    with tab_full:
+        st.caption(f"Complete dataset — all {df.shape[0]:,} rows")
+        st.dataframe(df, use_container_width=True)
+
+    st.write("---")
+
+    # ===== DATA QUALITY CHECKS =====
     st.subheader("🚨 Auto-Detected Data Quality Checks")
     missing = df.isnull().sum().sum()
     duplicates = df.duplicated().sum()
@@ -91,7 +148,7 @@ if uploaded_file:
         else:
             st.success("No duplicate rows.")
 
-    # TIER 2 FEATURE: Anomaly Detection
+    # ===== ANOMALY DETECTION =====
     anomalies = detect_anomalies(df)
     if anomalies:
         with st.expander(f"⚠️ {len(anomalies)} unusual value(s) detected — click to review", expanded=False):
@@ -100,7 +157,7 @@ if uploaded_file:
 
     st.write("---")
 
-    # TIER 1 FEATURE: Suggested Questions
+    # ===== SUGGESTED QUESTIONS =====
     if "suggestions" not in st.session_state or st.session_state.get("suggestions_file") != uploaded_file.name:
         with st.spinner("Preparing suggested questions..."):
             st.session_state.suggestions = generate_suggested_questions(list(df.columns), df)
@@ -120,7 +177,6 @@ if uploaded_file:
     if st.button("Analyze") and question:
         with st.spinner("Analyzing schema, generating code, and auditing logic..."):
 
-            # TIER 1 FEATURE: Stronger follow-up resolution
             history_text = "\n".join([f"User: {m['q']}\nAI: {m['a']}" for m in st.session_state.messages[-3:]])
 
             code_prompt = f"""
@@ -154,7 +210,6 @@ RULES FOR THE CODE:
                 execution_failed = True
                 result = f"I can't answer that — the data doesn't have enough information for it. (Reason: {str(e)[:150]})"
 
-            # TIER 1 FEATURE: Confidence indicator
             confidence_prompt = f"""
 Question: {question}
 Columns available: {columns}
@@ -221,7 +276,6 @@ State the final answer simply in one sentence.
                 with tab2:
                     st.markdown(explanation)
 
-                # TIER 2 FEATURE: Export the analysis
                 export_text = f"Question: {question}\n\nAnswer: {result}\n\n{explanation}"
                 st.download_button(
                     "⬇️ Download this analysis",
